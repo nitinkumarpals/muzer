@@ -1,2 +1,4 @@
 import { z } from "zod";
-z.object({ streamId: z.string().min(1, { message: "Stream ID is required" }) });
+export const upvoteSchema = z.object({
+  streamId: z.string().min(1, { message: "Stream ID is required" }),
+});

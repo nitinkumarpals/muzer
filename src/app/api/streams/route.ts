@@ -7,11 +7,12 @@ const youtubeRegex =
 
 export async function POST(req: NextRequest) {
   try {
-    const result = await streamSchema.safeParse(req.json());
+    const body = await req.json();
+    const result = await streamSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
-        { error: result.error.message },
+        { error: "Invalid request", details: result.error.format() },
         { status: 400 }
       );
     }
