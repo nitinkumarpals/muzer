@@ -2,8 +2,11 @@ import { prisma } from "@/lib/db";
 import { streamSchema } from "@/schemas/streamSchema";
 import { NextRequest, NextResponse } from "next/server";
 
+//@ts-expect-error Missing type definitions for youtube-search-api module
+import youtubesearchapi from "youtube-search-api";
+
 const youtubeRegex =
-  /^(https?:\/\/)?(www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})$/;
+  /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})((&(list|index|ab_channel)=[a-zA-Z0-9_-]+)*)?$/;
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isYoutubeUrl = youtubeRegex.test(result.data.url);
+    
     if (!isYoutubeUrl) {
       return NextResponse.json(
         { error: "Invalid Youtube URL Format" },
@@ -27,12 +31,28 @@ export async function POST(req: NextRequest) {
 
     const extractedId = new URL(result.data.url).searchParams.get("v") ?? "";
 
+    const youtubeResult = await youtubesearchapi.GetVideoDetails(extractedId);
+
+    const thumbnails = youtubeResult.thumbnail.thumbnails;
+    thumbnails.sort((a: { width: number }, b: { width: number }) =>
+      a.width < b.width ? -1 : 1
+    );
+
     const stream = await prisma.stream.create({
       data: {
         userId: result.data.creatorId,
         url: result.data.url,
         extractedId,
         type: "Youtube",
+        title: youtubeResult.title ?? "Can't find video",
+        smallThumbnail:
+          (thumbnails.length > 1
+            ? thumbnails[thumbnails.length - 2].url
+            : thumbnails[thumbnails.length - 1].url) ??
+          "https://cdn.pixabay.com/photo/2024/02/28/07/42/european-shorthair-8601492_640.jpg",
+        bigThumbnail:
+          thumbnails[thumbnails.length - 1].url ??
+          "https://cdn.pixabay.com/photo/2024/02/28/07/42/european-shorthair-8601492_640.jpg",
       },
     });
 
@@ -46,4 +66,17 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+}
+
+export async function GET(req: NextRequest) {
+  const creatorId = req.nextUrl.searchParams.get("creatorId");
+
+  const streams = await prisma.stream.findMany({
+    where: { userId: creatorId ?? "" },
+  });
+
+  return NextResponse.json(
+    { message: "Streams fetched", streams },
+    { status: 200 }
+  );
 }

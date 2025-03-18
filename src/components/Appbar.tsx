@@ -12,19 +12,19 @@ const Appbar = () => {
         <div>Muzer</div>
         <div>
           {status === "loading" ? (
-            <Button className="bg-gray-300 cursor-not-allowed" disabled>
+            <Button className="bg-gray-500 cursor-not-allowed" disabled>
               Loading...
             </Button>
           ) : session?.user?.name ? (
             <Button
-              className="bg-red-300 cursor-pointer"
+              className="bg-red-500 cursor-pointer"
               onClick={() => signOut()}
             >
               Logout
             </Button>
           ) : (
             <Button
-              className="bg-blue-300 cursor-pointer"
+              className="bg-blue-500 cursor-pointer"
               onClick={() => signIn()}
             >
               Sign in
