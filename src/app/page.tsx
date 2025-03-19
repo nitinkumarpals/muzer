@@ -11,11 +11,13 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Appbar from "@/components/Appbar";
+import { Redirect } from "@/components/Redirect";
 
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
       <Appbar/>
+      <Redirect/>
       <main className="flex-1">
         <section className="relative overflow-hidden py-20 md:py-32">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-fuchsia-500/20 to-cyan-500/20 z-0" />
