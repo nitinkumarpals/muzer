@@ -38,6 +38,7 @@ interface Video {
   userVoted: "up" | "down" | null;
   streamId: string;
   haveUpVoted: boolean;
+  extractedId: string;
 }
 const REFRESH_INTERVAL_MS = 10000;
 export default function Dashboard() {
@@ -51,12 +52,37 @@ export default function Dashboard() {
   const [voteInProgress, setVoteInProgress] = useState(false);
   const session = useSession();
   const refreshStreams = async () => {
-    await axios.get("/api/streams/my");
+    try {
+      const response = await axios.get("/api/streams/my");
+    
+      const streams = response.data.streams.map((stream: Video) => ({
+        ...stream,
+        id: stream.extractedId, 
+        thumbnail: `https://img.youtube.com/vi/${stream.extractedId}/maxresdefault.jpg`,
+      }));
+      
+      // If there's no current video playing, set the first stream as current
+      if (!currentVideo && streams.length > 0) {
+        setCurrentVideo(streams[0]);
+        setVideoQueue(streams.slice(1));
+      } else {
+        // Filter out the currently playing video from queue
+        setVideoQueue(streams.filter((stream: Video) => 
+          stream.id !== currentVideo?.id
+        ));
+      }
+    } catch (error) {
+      console.error("Failed to fetch streams:", error);
+    }
   };
+
   useEffect(() => {
     refreshStreams();
-    setInterval(() => {}, REFRESH_INTERVAL_MS);
-  }, []);
+    const interval = setInterval(refreshStreams, REFRESH_INTERVAL_MS);
+    
+    // Cleanup interval on component unmount
+    return () => clearInterval(interval);
+  }, [currentVideo]); // Re-run when currentVideo changes
 
   // Function to handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,6 +111,7 @@ export default function Dashboard() {
         userVoted: null,
         streamId: response.data.stream.id,
         haveUpVoted: false,
+        extractedId: videoId
       };
 
       // Add to queue if not already playing
@@ -463,7 +490,7 @@ export default function Dashboard() {
       <footer className="border-t bg-background">
         <div className="container py-6 text-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Muzer. All rights reserved.
+            {new Date().getFullYear()} Muzer. All rights reserved.
           </p>
         </div>
       </footer>
