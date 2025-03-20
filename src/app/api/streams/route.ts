@@ -73,6 +73,13 @@ export async function GET(req: NextRequest) {
 
   const streams = await prisma.stream.findMany({
     where: { userId: creatorId ?? "" },
+    include:{
+      upVotes:{
+        where:{
+          userId: creatorId ?? ""
+        }
+      }
+    }
   });
 
   return NextResponse.json(

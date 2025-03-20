@@ -2,9 +2,10 @@ import { prisma } from "@/lib/db";
 import { upvoteSchema } from "@/schemas/upvoteSchema";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { authOptions } from "../../auth/[...nextauth]/route";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,6 +20,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+    });
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    const stream = await prisma.stream.findUnique({
+      where: { id: result.data.streamId },
+    });
+    if (!stream) {
+      return NextResponse.json({ error: "Stream not found" }, { status: 404 });
+    }
     const existingUpvote = await prisma.upVote.findUnique({
       where: {
         userId_streamId: {
@@ -41,12 +55,11 @@ export async function POST(req: NextRequest) {
         streamId: result.data.streamId,
       },
     });
-    
+
     return NextResponse.json(
       { message: "Upvote added successfully", upVote },
       { status: 201 }
     );
-
   } catch (error) {
     return NextResponse.json(
       { error: `Something went wrong ${(error as Error).message}` },

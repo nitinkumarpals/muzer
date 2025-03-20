@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import NextAuth from "next-auth";
+import NextAuth, { AuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -8,7 +8,7 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
-const handler = NextAuth({
+export const authOptions: AuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
@@ -24,6 +24,7 @@ const handler = NextAuth({
       if (!existingUser) {
         await prisma.user.create({
           data: {
+            id: profile.sub,
             email: profile.email,
             provider: "Google",
           },
@@ -31,20 +32,18 @@ const handler = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user }) {
-      if (user) {
-        token.sub = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (!session.user?.email) return session;
-      if (token.sub) {
-        session.user.id = token.sub;
+    session: async ({ session, token }) => {
+      if (session?.user) {
+        session.user.id = token.sub!;
       }
       return session;
     },
   },
-});
+  secret: process.env.NEXTAUTH_SECRET ?? "secret",
+  //@ts-expect-error: no error here
+  nextUrl: process.env.NEXTAUTH_URL || "http://localhost:3000",
+};
+
+const handler = NextAuth(authOptions);
 
 export { handler as GET, handler as POST };
