@@ -114,13 +114,13 @@ export default function Dashboard() {
         (prev) =>
           prev
             .map((video) => {
-              if (video.id === id) {
+              if (video.streamId === id) {
                 // If user already voted in this direction, remove their vote
                 if (video.userVoted === direction) {
                   return {
                     ...video,
                     votes:
-                      direction === "up" ? video.votes - 1 : video.votes + 1,
+                      direction === "up" ? video.votes  : video.votes ,
                     userVoted: null,
                   };
                 }
@@ -158,7 +158,7 @@ export default function Dashboard() {
       // Revert optimistic update on error
       // In a real app, you would fetch the current state from the server
       // For this demo, we'll just show an alert
-      alert("Failed to register vote. Please try again.");
+      // alert("Failed to register vote. Please try again.");
     } finally {
       setVoteInProgress(false);
     }
@@ -373,7 +373,7 @@ export default function Dashboard() {
             {videoQueue.length > 0 ? (
               <div className="space-y-4">
                 {videoQueue.map((video) => (
-                  <Card key={video.id} className="overflow-hidden">
+                  <Card key={video.streamId} className="overflow-hidden">
                     <CardContent className="p-0">
                       <div className="flex">
                         <div className="relative h-24 w-32 flex-shrink-0">
@@ -409,7 +409,7 @@ export default function Dashboard() {
                           </div>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleVote(video.id, "up")}
+                              onClick={() => handleVote(video.streamId, "up")}
                               className={cn(
                                 "rounded-full p-2 transition-colors",
                                 video.userVoted === "up"
@@ -417,12 +417,14 @@ export default function Dashboard() {
                                   : "hover:bg-primary/10"
                               )}
                               aria-label="Upvote"
-                              disabled={voteInProgress}
+                              disabled={
+                                voteInProgress || video.userVoted == "up"
+                              }
                             >
                               <ThumbsUp className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleVote(video.id, "down")}
+                              onClick={() => handleVote(video.streamId, "down")}
                               className={cn(
                                 "rounded-full p-2 transition-colors",
                                 video.userVoted === "down"
@@ -430,7 +432,9 @@ export default function Dashboard() {
                                   : "hover:bg-destructive/10"
                               )}
                               aria-label="Downvote"
-                              disabled={voteInProgress}
+                              disabled={
+                                voteInProgress || video.userVoted == "down"
+                              }
                             >
                               <ThumbsDown className="h-4 w-4" />
                             </button>

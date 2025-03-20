@@ -2,9 +2,11 @@ import { prisma } from "@/lib/db";
 import { upvoteSchema } from "@/schemas/upvoteSchema";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
+import { authOptions } from "../../auth/[...nextauth]/route";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   if (!session || !session.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -27,15 +29,18 @@ export async function POST(req: NextRequest) {
         },
       },
     });
-
     return NextResponse.json(
       { message: "Down voted successfully" },
       { status: 200 }
     );
-  } catch (error) {
+  } catch (error: unknown) {
+  if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
+    return NextResponse.json({ error: "Up vote not found" }, { status: 404 });
+  } else {
     return NextResponse.json(
-      { error: `Something went wrong ${(error as Error).message}` },
+      { errorMessage: `Something went wrong ${(error as Error).message}` },
       { status: 500 }
     );
   }
+}
 }
