@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import youtubesearchapi from "youtube-search-api";
 
 const youtubeRegex =
-  /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})((&(list|index|ab_channel)=[a-zA-Z0-9_-]+)*)?$/;
+  /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(&.*)?$/;
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const isYoutubeUrl = youtubeRegex.test(result.data.url);
-    
+
     if (!isYoutubeUrl) {
       return NextResponse.json(
         { error: "Invalid Youtube URL Format" },
@@ -73,13 +73,13 @@ export async function GET(req: NextRequest) {
 
   const streams = await prisma.stream.findMany({
     where: { userId: creatorId ?? "" },
-    include:{
-      upVotes:{
-        where:{
-          userId: creatorId ?? ""
-        }
-      }
-    }
+    include: {
+      upVotes: {
+        where: {
+          userId: creatorId ?? "",
+        },
+      },
+    },
   });
 
   return NextResponse.json(

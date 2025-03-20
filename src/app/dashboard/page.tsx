@@ -5,6 +5,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,8 +27,8 @@ import {
 } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import axios from "axios";
 import { useSession } from "next-auth/react";
+
 // Type for video objects
 interface Video {
   id: string;
@@ -36,6 +37,7 @@ interface Video {
   votes: number;
   userVoted: "up" | "down" | null;
   streamId: string;
+  haveUpVoted: boolean;
 }
 const REFRESH_INTERVAL_MS = 10000;
 export default function Dashboard() {
@@ -46,6 +48,7 @@ export default function Dashboard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStreamer, setIsStreamer] = useState(true);
   const [showShareAlert, setShowShareAlert] = useState(false);
+  const [voteInProgress, setVoteInProgress] = useState(false);
   const session = useSession();
   const refreshStreams = async () => {
     await axios.get("/api/streams/my");
@@ -81,6 +84,7 @@ export default function Dashboard() {
         votes: 0,
         userVoted: null,
         streamId: response.data.stream.id,
+        haveUpVoted: false,
       };
 
       // Add to queue if not already playing
@@ -92,12 +96,8 @@ export default function Dashboard() {
 
       // Clear input
       setVideoUrl("");
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        setUrlError(`Failed to add video. Please try again. ${error.message}`);
-      } else {
-        setUrlError("An unknown error occurred while adding video.");
-      }
+    } catch {
+      setUrlError("Failed to add video. Please try again.");
     }
 
     setIsSubmitting(false);
@@ -105,43 +105,63 @@ export default function Dashboard() {
 
   // Function to handle voting
   const handleVote = async (id: string, direction: "up" | "down") => {
-    setVideoQueue(
-      (prev) =>
-        prev
-          .map((video) => {
-            if (video.id === id) {
-              // If user already voted in this direction, remove their vote
-              if (video.userVoted === direction) {
-                return {
-                  ...video,
-                  votes: direction === "up" ? video.votes - 1 : video.votes + 1,
-                  userVoted: null,
-                };
-              }
+    if (voteInProgress) return;
+    setVoteInProgress(true);
 
-              // If user voted in opposite direction, change their vote (counts as 2)
-              if (video.userVoted !== null && video.userVoted !== direction) {
+    try {
+      // Optimistically update UI
+      setVideoQueue(
+        (prev) =>
+          prev
+            .map((video) => {
+              if (video.id === id) {
+                // If user already voted in this direction, remove their vote
+                if (video.userVoted === direction) {
+                  return {
+                    ...video,
+                    votes:
+                      direction === "up" ? video.votes - 1 : video.votes + 1,
+                    userVoted: null,
+                  };
+                }
+
+                // If user voted in opposite direction, change their vote (counts as 2)
+                if (video.userVoted !== null && video.userVoted !== direction) {
+                  return {
+                    ...video,
+                    votes:
+                      direction === "up" ? video.votes + 2 : video.votes - 2,
+                    userVoted: direction,
+                  };
+                }
+
+                // If user hasn't voted yet
                 return {
                   ...video,
-                  votes: direction === "up" ? video.votes + 2 : video.votes - 2,
+                  votes: direction === "up" ? video.votes + 1 : video.votes - 1,
                   userVoted: direction,
                 };
               }
+              return video;
+            })
+            .sort((a, b) => b.votes - a.votes) // Sort by votes
+      );
 
-              // If user hasn't voted yet
-              return {
-                ...video,
-                votes: direction === "up" ? video.votes + 1 : video.votes - 1,
-                userVoted: direction,
-              };
-            }
-            return video;
-          })
-          .sort((a, b) => b.votes - a.votes) // Sort by votes
-    );
-    await axios.post("/api/streams/upvote", {
-      streamId: id,
-    });
+      // Make API call to server
+      if (direction === "up") {
+        await axios.post("/api/streams/upvote", { streamId: id });
+      } else if (direction === "down") {
+        await axios.post("/api/streams/downvote", { streamId: id });
+      }
+    } catch (error) {
+      console.error("Error voting:", error);
+      // Revert optimistic update on error
+      // In a real app, you would fetch the current state from the server
+      // For this demo, we'll just show an alert
+      alert("Failed to register vote. Please try again.");
+    } finally {
+      setVoteInProgress(false);
+    }
   };
 
   // Function to play next video
@@ -389,7 +409,7 @@ export default function Dashboard() {
                           </div>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleVote(video.streamId, "up")}
+                              onClick={() => handleVote(video.id, "up")}
                               className={cn(
                                 "rounded-full p-2 transition-colors",
                                 video.userVoted === "up"
@@ -397,11 +417,12 @@ export default function Dashboard() {
                                   : "hover:bg-primary/10"
                               )}
                               aria-label="Upvote"
+                              disabled={voteInProgress}
                             >
                               <ThumbsUp className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => handleVote(video.streamId, "down")}
+                              onClick={() => handleVote(video.id, "down")}
                               className={cn(
                                 "rounded-full p-2 transition-colors",
                                 video.userVoted === "down"
@@ -409,6 +430,7 @@ export default function Dashboard() {
                                   : "hover:bg-destructive/10"
                               )}
                               aria-label="Downvote"
+                              disabled={voteInProgress}
                             >
                               <ThumbsDown className="h-4 w-4" />
                             </button>
