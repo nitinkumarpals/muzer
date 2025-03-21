@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import axios from "axios";
@@ -17,6 +17,7 @@ import {
   ThumbsDown,
   Share2,
   Check,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,71 +30,256 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSession } from "next-auth/react";
 
-// Type for video objects
-interface Video {
+// Type for stream objects from API
+interface Stream {
   id: string;
-  title: string;
-  thumbnail: string;
-  votes: number;
-  userVoted: "up" | "down" | null;
-  streamId: string;
-  haveUpVoted: boolean;
   extractedId: string;
+  title: string;
+  smallThumbnail: string;
+  bigThumbnail: string;
+  upVotes: number;
+  haveUpVoted: boolean;
+  active: boolean;
+  type: string;
+  url: string;
 }
-const REFRESH_INTERVAL_MS = 10000;
+
+// Separate component for Now Playing to prevent re-renders
+const NowPlaying = ({
+  stream,
+  isStreamer,
+  onPlayNext,
+  queueLength,
+}: {
+  stream: Stream | null;
+  isStreamer: boolean;
+  onPlayNext: () => void;
+  queueLength: number;
+}) => {
+  const playerRef = useRef<HTMLIFrameElement>(null);
+
+  // Only re-render this component if the stream ID changes or streamer status changes
+  return (
+    <div className="rounded-lg border p-6">
+      <h2 className="text-xl font-bold mb-4">Now Playing</h2>
+      {stream ? (
+        <div className="space-y-4">
+          <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
+            <iframe
+              ref={playerRef}
+              width="100%"
+              height="100%"
+              src={`https://www.youtube.com/embed/${stream.extractedId}?autoplay=1&enablejsapi=1`}
+              title="YouTube video player"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              className="h-full w-full"
+            ></iframe>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-medium">{stream.title}</h3>
+            </div>
+            {isStreamer && (
+              <Button onClick={onPlayNext} disabled={queueLength === 0}>
+                <SkipForward className="mr-2 h-4 w-4" />
+                Play Next
+              </Button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="mb-4 rounded-full bg-primary/10 p-3">
+            <Music className="h-6 w-6 text-primary" />
+          </div>
+          <h3 className="mb-2 text-xl font-medium">No video playing</h3>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Add a YouTube video to get started
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Separate component for Queue Item to prevent re-renders
+const QueueItem = ({
+  stream,
+  onVote,
+  voteInProgress,
+}: {
+  stream: Stream;
+  onVote: (id: string, isUpvote: boolean) => void;
+  voteInProgress: boolean;
+}) => {
+  // Only show voting UI if user has voted or if upVotes > 0
+  const showVotingUI = stream.haveUpVoted !== null || stream.upVotes > 0;
+
+  return (
+    <Card key={stream.id} className="overflow-hidden">
+      <CardContent className="p-0">
+        <div className="flex">
+          <div className="relative h-24 w-32 flex-shrink-0">
+            <Image
+              src={stream.smallThumbnail || "/placeholder.svg"}
+              alt={stream.title}
+              fill
+              className="object-cover"
+            />
+          </div>
+          <div className="flex flex-1 items-center justify-between p-3">
+            <div className="mr-2 flex-1">
+              <h3 className="font-medium line-clamp-2">{stream.title}</h3>
+              {(stream.upVotes > 0 || stream.haveUpVoted !== undefined) && (
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Votes:{" "}
+                  <span
+                    className={cn(
+                      "font-medium",
+                      stream.upVotes > 0 ? "text-primary" : ""
+                    )}
+                  >
+                    {stream.upVotes > 0 ? `+${stream.upVotes}` : stream.upVotes}
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => onVote(stream.id, true)}
+                className={cn(
+                  "rounded-full p-2 transition-colors",
+                  stream.haveUpVoted
+                    ? "bg-primary text-primary-foreground"
+                    : "hover:bg-primary/10"
+                )}
+                aria-label="Upvote"
+                disabled={voteInProgress}
+              >
+                <ThumbsUp className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => onVote(stream.id, false)}
+                className={cn(
+                  "rounded-full p-2 transition-colors",
+                  stream.haveUpVoted == false
+                    ? "bg-destructive text-destructive-foreground"
+                    : "hover:bg-destructive/10"
+                )}
+                aria-label="Downvote"
+                disabled={voteInProgress}
+              >
+                <ThumbsDown className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 export default function Dashboard() {
   const [videoUrl, setVideoUrl] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
-  const [videoQueue, setVideoQueue] = useState<Video[]>([]);
-  const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
+  const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
+  const [queueStreamIds, setQueueStreamIds] = useState<string[]>([]);
+  const [streamsMap, setStreamsMap] = useState<Record<string, Stream>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isStreamer, setIsStreamer] = useState(true);
   const [showShareAlert, setShowShareAlert] = useState(false);
   const [voteInProgress, setVoteInProgress] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const session = useSession();
-  const refreshStreams = async () => {
+
+  // Memoized current stream to prevent re-renders
+  const currentStream = useMemo(
+    () => (currentStreamId ? streamsMap[currentStreamId] : null),
+    [currentStreamId, streamsMap]
+  );
+
+  // Memoized queue streams to prevent re-renders
+  const queueStreams = useMemo(
+    () =>
+      queueStreamIds
+        .map((id) => streamsMap[id])
+        .filter(Boolean)
+        .sort((a, b) => b.upVotes - a.upVotes),
+    [queueStreamIds, streamsMap]
+  );
+
+  // Function to fetch streams from API
+  const fetchStreams = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
     try {
       const response = await axios.get("/api/streams/my");
-    
-      const streams = response.data.streams.map((stream: Video) => ({
-        ...stream,
-        id: stream.extractedId, 
-        thumbnail: `https://img.youtube.com/vi/${stream.extractedId}/maxresdefault.jpg`,
-      }));
-      
-      // If there's no current video playing, set the first stream as current
-      if (!currentVideo && streams.length > 0) {
-        setCurrentVideo(streams[0]);
-        setVideoQueue(streams.slice(1));
-      } else {
-        // Filter out the currently playing video from queue
-        setVideoQueue(streams.filter((stream: Video) => 
-          stream.id !== currentVideo?.id
-        ));
-      }
-    } catch (error) {
-      console.error("Failed to fetch streams:", error);
-    }
-  };
+      const fetchedStreams = response.data.streams;
 
+      // Create a map of streams by ID for efficient lookups
+      const newStreamsMap: Record<string, Stream> = {};
+      fetchedStreams.forEach((stream: Stream) => {
+        newStreamsMap[stream.id] = stream;
+      });
+
+      setStreamsMap(newStreamsMap);
+
+      if (fetchedStreams.length > 0) {
+        // Set the first stream as current if we don't have one yet
+        if (!currentStreamId) {
+          setCurrentStreamId(fetchedStreams[0].id);
+          setQueueStreamIds(fetchedStreams.slice(1).map((s: Stream) => s.id));
+        } else {
+          // Otherwise, update the queue while preserving the current stream
+          const queueIds = fetchedStreams
+            .filter((s: Stream) => s.id !== currentStreamId)
+            .map((s: Stream) => s.id);
+          setQueueStreamIds(queueIds);
+        }
+      } else {
+        setCurrentStreamId(null);
+        setQueueStreamIds([]);
+      }
+    } catch (err) {
+      console.error("Error fetching streams:", err);
+      setError("Failed to load streams. Please refresh the page.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentStreamId]);
+
+  // Fetch streams on component mount
   useEffect(() => {
-    refreshStreams();
-    const interval = setInterval(refreshStreams, REFRESH_INTERVAL_MS);
-    
-    // Cleanup interval on component unmount
-    return () => clearInterval(interval);
-  }, [currentVideo]); // Re-run when currentVideo changes
+    fetchStreams();
+
+    // Set up polling to refresh queue data without affecting the current stream
+    const intervalId = setInterval(() => {
+      fetchStreams();
+    }, 30000); // Poll every 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [fetchStreams]);
+
+  // Function to validate YouTube URL and extract video ID
+  const validateYouTubeUrl = (url: string) => {
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return match && match[2].length === 11 ? match[2] : null;
+  };
 
   // Function to handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setUrlError(null);
-    const response = await axios.post("api/streams", {
-      creatorId: session.data?.user.id,
-      url: videoUrl,
-    });
-    const videoId = response.data.stream.extractedId;
+
+    const videoId = validateYouTubeUrl(videoUrl);
+
     if (!videoId) {
       setUrlError("Please enter a valid YouTube URL");
       setIsSubmitting(false);
@@ -101,109 +287,99 @@ export default function Dashboard() {
     }
 
     try {
-      // In a real app, you would fetch video details from YouTube API
-      // For this demo, we'll create mock data
-      const newVideo: Video = {
-        id: videoId,
-        title: `Music Video ${videoId.substring(0, 6)}`,
-        thumbnail: `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`,
-        votes: 0,
-        userVoted: null,
-        streamId: response.data.stream.id,
-        haveUpVoted: false,
-        extractedId: videoId
-      };
+      await axios.post("api/streams", {
+        creatorId: session.data?.user.id,
+        url: videoUrl,
+      });
 
-      // Add to queue if not already playing
-      if (!currentVideo) {
-        setCurrentVideo(newVideo);
-      } else {
-        setVideoQueue((prev) => [...prev, newVideo]);
-      }
+      // Refresh streams to get the new video
+      await fetchStreams();
 
       // Clear input
       setVideoUrl("");
-    } catch {
+    } catch (error) {
+      console.error("Error adding video:", error);
       setUrlError("Failed to add video. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setIsSubmitting(false);
   };
 
   // Function to handle voting
-  const handleVote = async (id: string, direction: "up" | "down") => {
+  const handleVote = async (streamId: string, isUpvote: boolean) => {
     if (voteInProgress) return;
     setVoteInProgress(true);
 
     try {
       // Optimistically update UI
-      setVideoQueue(
-        (prev) =>
-          prev
-            .map((video) => {
-              if (video.streamId === id) {
-                // If user already voted in this direction, remove their vote
-                if (video.userVoted === direction) {
-                  return {
-                    ...video,
-                    votes:
-                      direction === "up" ? video.votes  : video.votes ,
-                    userVoted: null,
-                  };
-                }
+      setStreamsMap((prev) => {
+        const stream = prev[streamId];
+        if (!stream) return prev;
 
-                // If user voted in opposite direction, change their vote (counts as 2)
-                if (video.userVoted !== null && video.userVoted !== direction) {
-                  return {
-                    ...video,
-                    votes:
-                      direction === "up" ? video.votes + 2 : video.votes - 2,
-                    userVoted: direction,
-                  };
-                }
-
-                // If user hasn't voted yet
-                return {
-                  ...video,
-                  votes: direction === "up" ? video.votes + 1 : video.votes - 1,
-                  userVoted: direction,
-                };
-              }
-              return video;
-            })
-            .sort((a, b) => b.votes - a.votes) // Sort by votes
-      );
+        return {
+          ...prev,
+          [streamId]: {
+            ...stream,
+            upVotes: isUpvote ? stream.upVotes + 1 : stream.upVotes - 1,
+            haveUpVoted: isUpvote,
+          },
+        };
+      });
 
       // Make API call to server
-      if (direction === "up") {
-        await axios.post("/api/streams/upvote", { streamId: id });
-      } else if (direction === "down") {
-        await axios.post("/api/streams/downvote", { streamId: id });
+      if (isUpvote) {
+        await axios.post("/api/streams/upvote", { streamId });
+      } else {
+        await axios.post("/api/streams/downvote", { streamId });
       }
+
+      // Refresh streams to get updated vote counts, but don't update the UI immediately
+      const response = await axios.get("/api/streams/my");
+      const fetchedStreams = response.data.streams;
+
+      // Update the streams map with the latest data
+      const newStreamsMap: Record<string, Stream> = { ...streamsMap };
+      fetchedStreams.forEach((stream: Stream) => {
+        newStreamsMap[stream.id] = stream;
+      });
+
+      setStreamsMap(newStreamsMap);
     } catch (error) {
       console.error("Error voting:", error);
-      // Revert optimistic update on error
-      // In a real app, you would fetch the current state from the server
-      // For this demo, we'll just show an alert
-      // alert("Failed to register vote. Please try again.");
+      setError("Failed to register vote. Please try again.");
+      // Refresh streams to get correct state
+      await fetchStreams();
     } finally {
       setVoteInProgress(false);
     }
   };
 
   // Function to play next video
-  const playNext = () => {
-    if (videoQueue.length > 0) {
-      // Get the video with the highest votes
-      const nextVideo = [...videoQueue].sort((a, b) => b.votes - a.votes)[0];
-      setCurrentVideo(nextVideo);
-      setVideoQueue((prev) =>
-        prev.filter((video) => video.id !== nextVideo.id)
-      );
-    } else {
-      setCurrentVideo(null);
+  const playNext = useCallback(async () => {
+    if (!currentStreamId) return;
+
+    try {
+      // Remove current stream from backend
+      await axios.delete(`/api/streams/remove?streamId=${currentStreamId}`);
+
+      if (queueStreams.length > 0) {
+        // Get the stream with the highest votes
+        const nextStream = queueStreams[0];
+        setCurrentStreamId(nextStream.id);
+        setQueueStreamIds((prev) => prev.filter((id) => id !== nextStream.id));
+      } else {
+        setCurrentStreamId(null);
+      }
+    } catch (error) {
+      console.error("Error playing next stream:", error);
+      setError("Failed to play next video. Please try again.");
     }
-  };
+  }, [currentStreamId, queueStreams]);
+
+  // Function to handle video end
+  const handleVideoEnd = useCallback(async () => {
+    await playNext();
+  }, [playNext]);
 
   // Function to share the page
   const handleShare = () => {
@@ -218,7 +394,7 @@ export default function Dashboard() {
         <div className="container flex h-16 items-center justify-between py-4">
           <div className="flex items-center gap-2">
             <Music className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">Muzer</span>
+            <span className="text-xl font-bold">Harmonic</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-sm font-medium hover:text-primary">
@@ -292,52 +468,55 @@ export default function Dashboard() {
           </Alert>
         )}
 
+        {error && (
+          <Alert className="mb-4 bg-destructive/10 border-destructive">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription>{error}</AlertDescription>
+            </div>
+          </Alert>
+        )}
+
         <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
           {/* Now Playing Section */}
           <div className="space-y-6">
-            <div className="rounded-lg border p-6">
-              <h2 className="text-xl font-bold mb-4">Now Playing</h2>
-              {currentVideo ? (
-                <div className="space-y-4">
-                  <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
-                    <iframe
-                      width="100%"
-                      height="100%"
-                      src={`https://www.youtube.com/embed/${currentVideo.id}?autoplay=1`}
-                      title="YouTube video player"
-                      frameBorder="0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      className="h-full w-full"
-                    ></iframe>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-medium">{currentVideo.title}</h3>
-                    </div>
-                    {isStreamer && (
-                      <Button
-                        onClick={playNext}
-                        disabled={videoQueue.length === 0}
-                      >
-                        <SkipForward className="mr-2 h-4 w-4" />
-                        Play Next
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ) : (
+            {isLoading && !currentStream ? (
+              <div className="rounded-lg border p-6">
+                <h2 className="text-xl font-bold mb-4">Now Playing</h2>
                 <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="mb-4 rounded-full bg-primary/10 p-3">
-                    <Music className="h-6 w-6 text-primary" />
+                  <div className="mb-4">
+                    <svg
+                      className="animate-spin h-8 w-8 text-primary"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
                   </div>
-                  <h3 className="mb-2 text-xl font-medium">No video playing</h3>
-                  <p className="mb-4 text-sm text-muted-foreground">
-                    Add a YouTube video to get started
-                  </p>
+                  <h3 className="mb-2 text-xl font-medium">Loading...</h3>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <NowPlaying
+                stream={currentStream}
+                isStreamer={isStreamer}
+                onPlayNext={playNext}
+                queueLength={queueStreams.length}
+              />
+            )}
 
             {/* YouTube URL Input */}
             <div className="rounded-lg border p-6">
@@ -397,79 +576,41 @@ export default function Dashboard() {
           {/* Video Queue */}
           <div className="rounded-lg border p-6 h-fit">
             <h2 className="text-xl font-bold mb-4">Video Queue</h2>
-            {videoQueue.length > 0 ? (
+            {isLoading && queueStreams.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="mb-4">
+                  <svg
+                    className="animate-spin h-8 w-8 text-primary"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                </div>
+                <h3 className="mb-2 text-xl font-medium">Loading queue...</h3>
+              </div>
+            ) : queueStreams.length > 0 ? (
               <div className="space-y-4">
-                {videoQueue.map((video) => (
-                  <Card key={video.streamId} className="overflow-hidden">
-                    <CardContent className="p-0">
-                      <div className="flex">
-                        <div className="relative h-24 w-32 flex-shrink-0">
-                          <Image
-                            src={video.thumbnail || "/placeholder.svg"}
-                            alt={video.title}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                        <div className="flex flex-1 items-center justify-between p-3">
-                          <div className="mr-2 flex-1">
-                            <h3 className="font-medium line-clamp-2">
-                              {video.title}
-                            </h3>
-                            <div className="mt-1 text-sm text-muted-foreground">
-                              Votes:{" "}
-                              <span
-                                className={cn(
-                                  "font-medium",
-                                  video.votes > 0
-                                    ? "text-primary"
-                                    : video.votes < 0
-                                    ? "text-destructive"
-                                    : ""
-                                )}
-                              >
-                                {video.votes > 0
-                                  ? `+${video.votes}`
-                                  : video.votes}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleVote(video.streamId, "up")}
-                              className={cn(
-                                "rounded-full p-2 transition-colors",
-                                video.userVoted === "up"
-                                  ? "bg-primary text-primary-foreground"
-                                  : "hover:bg-primary/10"
-                              )}
-                              aria-label="Upvote"
-                              disabled={
-                                voteInProgress || video.userVoted == "up"
-                              }
-                            >
-                              <ThumbsUp className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleVote(video.streamId, "down")}
-                              className={cn(
-                                "rounded-full p-2 transition-colors",
-                                video.userVoted === "down"
-                                  ? "bg-destructive text-destructive-foreground"
-                                  : "hover:bg-destructive/10"
-                              )}
-                              aria-label="Downvote"
-                              disabled={
-                                voteInProgress || video.userVoted == "down"
-                              }
-                            >
-                              <ThumbsDown className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                {queueStreams.map((stream) => (
+                  <QueueItem
+                    key={stream.id}
+                    stream={stream}
+                    onVote={handleVote}
+                    voteInProgress={voteInProgress}
+                  />
                 ))}
               </div>
             ) : (
@@ -490,7 +631,7 @@ export default function Dashboard() {
       <footer className="border-t bg-background">
         <div className="container py-6 text-center">
           <p className="text-sm text-muted-foreground">
-            {new Date().getFullYear()} Muzer. All rights reserved.
+            © {new Date().getFullYear()} Harmonic. All rights reserved.
           </p>
         </div>
       </footer>

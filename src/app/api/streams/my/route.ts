@@ -30,7 +30,6 @@ export async function GET() {
       streams: streams.map(({ _count, ...rest }) => ({
         ...rest,
         upVotes: _count.upVotes,
-        haveUpVoted: rest.upVotes.length ? true : false,
       })),
     },
     { status: 200 }

@@ -20,27 +20,37 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-
-    await prisma.upVote.delete({
-      where: {
-        userId_streamId: {
-          userId: session.user.id,
-          streamId: result.data.streamId,
+    await prisma.$transaction([
+      prisma.upVote.delete({
+        where: {
+          userId_streamId: {
+            userId: session.user.id,
+            streamId: result.data.streamId,
+          },
         },
-      },
-    });
+      }),
+      prisma.stream.update({
+        where: { id: result.data.streamId },
+        data: {
+          haveUpVoted: false,
+        },
+      }),
+    ]);
     return NextResponse.json(
       { message: "Down voted successfully" },
       { status: 200 }
     );
   } catch (error: unknown) {
-  if (error instanceof PrismaClientKnownRequestError && error.code === 'P2025') {
-    return NextResponse.json({ error: "Up vote not found" }, { status: 404 });
-  } else {
-    return NextResponse.json(
-      { errorMessage: `Something went wrong ${(error as Error).message}` },
-      { status: 500 }
-    );
+    if (
+      error instanceof PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      return NextResponse.json({ error: "Up vote not found" }, { status: 404 });
+    } else {
+      return NextResponse.json(
+        { errorMessage: `Something went wrong ${(error as Error).message}` },
+        { status: 500 }
+      );
+    }
   }
-}
 }
