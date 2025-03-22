@@ -16,8 +16,8 @@ import { Redirect } from "@/components/Redirect";
 export default function LandingPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <Appbar/>
-      <Redirect/>
+      <Appbar />
+      <Redirect />
       <main className="flex-1">
         <section className="relative overflow-hidden py-20 md:py-32">
           <div className="absolute inset-0 bg-gradient-to-br from-purple-500/20 via-fuchsia-500/20 to-cyan-500/20 z-0" />
@@ -302,7 +302,8 @@ export default function LandingPage() {
                 <p className="mt-2 text-muted-foreground">
                   Simply sign up for a free account, set up your profile, and
                   you can start streaming in minutes. Our intuitive interface
-                  makes it easy to get started, even if you&apos;re new to streaming.
+                  makes it easy to get started, even if you&apos;re new to
+                  streaming.
                 </p>
               </div>
             </div>
@@ -315,8 +316,8 @@ export default function LandingPage() {
               <div className="grid gap-6 lg:grid-cols-2 items-center">
                 <div>
                   <h2 className="text-3xl font-bold tracking-tighter text-white sm:text-4xl">
-                    Ready to transform your music streams? It&apos;s free and open
-                    source!
+                    Ready to transform your music streams? It&apos;s free and
+                    open source!
                   </h2>
                   <p className="mt-4 text-white/90 md:text-xl">
                     Join thousands of creators who are building communities
@@ -330,13 +331,14 @@ export default function LandingPage() {
                   >
                     Get Started Free
                   </Button>
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="text-white border-white hover:bg-white/10"
+                  <Link
+                    href="https://github.com/nitinkumarpals/muzer"
+                    target="_blank"
                   >
-                    View on GitHub
-                  </Button>
+                    <Button size="lg" variant="outline">
+                      View on GitHub
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>

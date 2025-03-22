@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import LiteYouTubeEmbed from "react-lite-youtube-embed";
 import "react-lite-youtube-embed/dist/LiteYouTubeEmbed.css";
 // Type for stream objects from API
@@ -364,7 +364,7 @@ export default function Dashboard() {
 
     try {
       // Remove current stream from backend
-      await axios.delete(`/api/streams/remove?streamId=${currentStreamId}`);
+      await axios.delete(`/api/streams/deleteStream?streamId=${currentStreamId}`);
 
       if (queueStreams.length > 0) {
         // Get the stream with the highest votes
@@ -387,7 +387,8 @@ export default function Dashboard() {
 
   // Function to share the page
   const handleShare = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const sharableLink = `${window.location.href}/creator/${creatorId}`
+    navigator.clipboard.writeText(sharableLink);
     setShowShareAlert(true);
     setTimeout(() => setShowShareAlert(false), 3000);
   };
@@ -412,7 +413,11 @@ export default function Dashboard() {
             </Link>
           </nav>
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={()=> signOut({callbackUrl: '/'})}
+            >
               Log out
             </Button>
           </div>

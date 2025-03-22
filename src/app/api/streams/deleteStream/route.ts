@@ -17,12 +17,19 @@ export async function DELETE(req: NextRequest) {
         { status: 400 }
       );
     }
-    await prisma.stream.delete({
-      where: {
-        id: streamId,
-        userId: session.user.id,
-      },
-    });
+    await prisma.$transaction([
+      prisma.upVote.deleteMany({
+        where: {
+          streamId: streamId,
+        },
+      }),
+      prisma.stream.delete({
+        where: {
+          id: streamId,
+          userId: session.user.id,
+        },
+      }),
+    ]);
     return NextResponse.json({ message: "Song removed" }, { status: 200 });
   } catch (error: unknown) {
     if (
