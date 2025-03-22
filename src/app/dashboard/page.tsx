@@ -29,7 +29,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSession } from "next-auth/react";
-
+import LiteYouTubeEmbed from "react-lite-youtube-embed";
+import "react-lite-youtube-embed/dist/LiteYouTubeEmbed.css";
 // Type for stream objects from API
 interface Stream {
   id: string;
@@ -342,8 +343,7 @@ export default function Dashboard() {
       fetchedStreams.forEach((stream: Stream) => {
         newStreamsMap[stream.id] = {
           ...stream,
-          haveUpVoted:
-            stream.haveUpVoted === undefined ? null : stream.haveUpVoted,
+          haveUpVoted: stream.haveUpVoted,
         };
       });
 
@@ -574,6 +574,14 @@ export default function Dashboard() {
                   youtu.be/VIDEO_ID
                 </p>
               </form>
+              {validateYouTubeUrl(videoUrl) && (
+                <div className="max-w-[500px] w-full overflow-hidden rounded-lg shadow-sm mt-2 mx-auto">
+                  <LiteYouTubeEmbed
+                    id={validateYouTubeUrl(videoUrl) || ""}
+                    title={videoUrl}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -635,7 +643,7 @@ export default function Dashboard() {
       <footer className="border-t bg-background">
         <div className="container py-6 text-center">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Harmonic. All rights reserved.
+            {new Date().getFullYear()} Harmonic. All rights reserved.
           </p>
         </div>
       </footer>
