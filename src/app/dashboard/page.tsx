@@ -13,11 +13,11 @@ import {
   Music,
   Play,
   SkipForward,
-  ThumbsUp,
-  ThumbsDown,
   Share2,
   Check,
   AlertCircle,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,7 +38,7 @@ interface Stream {
   smallThumbnail: string;
   bigThumbnail: string;
   upVotes: number;
-  haveUpVoted: boolean;
+  haveUpVoted: boolean | null;
   active: boolean;
   type: string;
   url: string;
@@ -114,11 +114,8 @@ const QueueItem = ({
   onVote: (id: string, isUpvote: boolean) => void;
   voteInProgress: boolean;
 }) => {
-  // Only show voting UI if user has voted or if upVotes > 0
-  const showVotingUI = stream.haveUpVoted !== null || stream.upVotes > 0;
-
   return (
-    <Card key={stream.id} className="overflow-hidden">
+    <Card className="overflow-hidden">
       <CardContent className="p-0">
         <div className="flex">
           <div className="relative h-24 w-32 flex-shrink-0">
@@ -132,47 +129,42 @@ const QueueItem = ({
           <div className="flex flex-1 items-center justify-between p-3">
             <div className="mr-2 flex-1">
               <h3 className="font-medium line-clamp-2">{stream.title}</h3>
-              {(stream.upVotes > 0 || stream.haveUpVoted !== undefined) && (
-                <div className="mt-1 text-sm text-muted-foreground">
-                  Votes:{" "}
-                  <span
-                    className={cn(
-                      "font-medium",
-                      stream.upVotes > 0 ? "text-primary" : ""
-                    )}
-                  >
-                    {stream.upVotes > 0 ? `+${stream.upVotes}` : stream.upVotes}
-                  </span>
-                </div>
-              )}
+              <div className="mt-1 text-sm text-muted-foreground">
+                Votes:{" "}
+                <span
+                  className={cn(
+                    "font-medium",
+                    stream.upVotes > 0 ? "text-primary" : ""
+                  )}
+                >
+                  {stream.upVotes}
+                </span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => onVote(stream.id, true)}
-                className={cn(
-                  "rounded-full p-2 transition-colors",
-                  stream.haveUpVoted
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-primary/10"
-                )}
-                aria-label="Upvote"
-                disabled={voteInProgress}
-              >
-                <ThumbsUp className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onVote(stream.id, false)}
-                className={cn(
-                  "rounded-full p-2 transition-colors",
-                  stream.haveUpVoted == false
-                    ? "bg-destructive text-destructive-foreground"
-                    : "hover:bg-destructive/10"
-                )}
-                aria-label="Downvote"
-                disabled={voteInProgress}
-              >
-                <ThumbsDown className="h-4 w-4" />
-              </button>
+            <div className="flex items-center">
+              {/* Show only up arrow if not upvoted or downvoted */}
+              {!stream.haveUpVoted && (
+                <button
+                  onClick={() => onVote(stream.id, true)}
+                  className="rounded-full p-2 transition-colors hover:bg-primary/10"
+                  aria-label="Upvote"
+                  disabled={voteInProgress}
+                >
+                  <ThumbsUp className="h-5 w-5 text-primary" />
+                </button>
+              )}
+
+              {/* Show only down arrow if upvoted */}
+              {stream.haveUpVoted === true && (
+                <button
+                  onClick={() => onVote(stream.id, false)}
+                  className="rounded-full p-2 transition-colors hover:bg-destructive/10"
+                  aria-label="Downvote"
+                  disabled={voteInProgress}
+                >
+                  <ThumbsDown className="h-5 w-5 text-destructive" />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -223,7 +215,12 @@ export default function Dashboard() {
       // Create a map of streams by ID for efficient lookups
       const newStreamsMap: Record<string, Stream> = {};
       fetchedStreams.forEach((stream: Stream) => {
-        newStreamsMap[stream.id] = stream;
+        // Normalize the haveUpVoted property to be true, false, or null
+        newStreamsMap[stream.id] = {
+          ...stream,
+          haveUpVoted:
+            stream.haveUpVoted === undefined ? null : stream.haveUpVoted,
+        };
       });
 
       setStreamsMap(newStreamsMap);
@@ -305,7 +302,7 @@ export default function Dashboard() {
     }
   };
 
-  // Function to handle voting
+  // Function to handle voting with modified behavior
   const handleVote = async (streamId: string, isUpvote: boolean) => {
     if (voteInProgress) return;
     setVoteInProgress(true);
@@ -316,11 +313,14 @@ export default function Dashboard() {
         const stream = prev[streamId];
         if (!stream) return prev;
 
+        // Set vote count to 1 for upvote, 0 for downvote
+        const newVoteCount = isUpvote ? 1 : 0;
+
         return {
           ...prev,
           [streamId]: {
             ...stream,
-            upVotes: isUpvote ? stream.upVotes + 1 : stream.upVotes - 1,
+            upVotes: newVoteCount,
             haveUpVoted: isUpvote,
           },
         };
@@ -340,7 +340,11 @@ export default function Dashboard() {
       // Update the streams map with the latest data
       const newStreamsMap: Record<string, Stream> = { ...streamsMap };
       fetchedStreams.forEach((stream: Stream) => {
-        newStreamsMap[stream.id] = stream;
+        newStreamsMap[stream.id] = {
+          ...stream,
+          haveUpVoted:
+            stream.haveUpVoted === undefined ? null : stream.haveUpVoted,
+        };
       });
 
       setStreamsMap(newStreamsMap);
