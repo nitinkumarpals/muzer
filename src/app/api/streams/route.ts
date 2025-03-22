@@ -102,7 +102,7 @@ export async function GET(req: NextRequest) {
       streams: streams.map(({ _count, ...rest }) => ({
         ...rest,
         upVotes: _count.upVotes,
-        haveVoted: rest.upVotes.length ? true : false,
+        haveUpVoted: rest.upVotes.length ? true : false,
       })),
     },
     { status: 200 }

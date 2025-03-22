@@ -20,22 +20,15 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    await prisma.$transaction([
-      prisma.upVote.delete({
-        where: {
-          userId_streamId: {
-            userId: session.user.id,
-            streamId: result.data.streamId,
-          },
+    await prisma.upVote.delete({
+      where: {
+        userId_streamId: {
+          userId: session.user.id,
+          streamId: result.data.streamId,
         },
-      }),
-      prisma.stream.update({
-        where: { id: result.data.streamId },
-        data: {
-          haveUpVoted: false,
-        },
-      }),
-    ]);
+      },
+    });
+
     return NextResponse.json(
       { message: "Down voted successfully" },
       { status: 200 }

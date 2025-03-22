@@ -214,11 +214,9 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
       // Create a map of streams by ID for efficient lookups
       const newStreamsMap: Record<string, Stream> = {};
       fetchedStreams.forEach((stream: Stream) => {
-        // Normalize the haveUpVoted property to be true, false, or null
         newStreamsMap[stream.id] = {
           ...stream,
-          haveUpVoted:
-            stream.haveUpVoted === undefined ? null : stream.haveUpVoted,
+          haveUpVoted: stream.haveUpVoted,
         };
       });
 
