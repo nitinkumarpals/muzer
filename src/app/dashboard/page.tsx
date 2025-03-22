@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-
+import { toast } from "sonner";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -14,7 +14,6 @@ import {
   Play,
   SkipForward,
   Share2,
-  Check,
   AlertCircle,
   ThumbsUp,
   ThumbsDown,
@@ -187,7 +186,6 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const session = useSession();
-
   // Memoized current stream to prevent re-renders
   const currentStream = useMemo(
     () => (currentStreamId ? streamsMap[currentStreamId] : null),
@@ -364,7 +362,9 @@ export default function Dashboard() {
 
     try {
       // Remove current stream from backend
-      await axios.delete(`/api/streams/deleteStream?streamId=${currentStreamId}`);
+      await axios.delete(
+        `/api/streams/deleteStream?streamId=${currentStreamId}`
+      );
 
       if (queueStreams.length > 0) {
         // Get the stream with the highest votes
@@ -387,8 +387,17 @@ export default function Dashboard() {
 
   // Function to share the page
   const handleShare = () => {
-    const sharableLink = `${window.location.href}/creator/${creatorId}`
+    //todo: can be changed later to hostname instead of href
+    const sharableLink = `${window.location.href}/creator/${session.data?.user.id}`;
     navigator.clipboard.writeText(sharableLink);
+    toast("Link copied to clipboard!", {
+      description: "Share it with your viewers.",
+      duration: 3000,
+      style: {
+        background: "#34c759",
+        color: "#fff",
+      },
+    });
     setShowShareAlert(true);
     setTimeout(() => setShowShareAlert(false), 3000);
   };
@@ -416,7 +425,7 @@ export default function Dashboard() {
             <Button
               variant="destructive"
               size="sm"
-              onClick={()=> signOut({callbackUrl: '/'})}
+              onClick={() => signOut({ callbackUrl: "/" })}
             >
               Log out
             </Button>
@@ -465,18 +474,6 @@ export default function Dashboard() {
             </TooltipProvider>
           </div>
         </div>
-
-        {showShareAlert && (
-          <Alert className="mb-4 bg-primary/10 border-primary">
-            <div className="flex items-center gap-2">
-              <Check className="h-4 w-4 text-primary" />
-              <AlertDescription>
-                Link copied to clipboard! Share it with your viewers.
-              </AlertDescription>
-            </div>
-          </Alert>
-        )}
-
         {error && (
           <Alert className="mb-4 bg-destructive/10 border-destructive">
             <div className="flex items-center gap-2">
