@@ -253,7 +253,7 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
     // Set up polling to refresh queue data without affecting the current stream
     const intervalId = setInterval(() => {
       fetchStreams();
-    }, 30000); // Poll every 30 seconds
+    }, 20000); // Poll every 20 seconds
 
     return () => clearInterval(intervalId);
   }, [fetchStreams]);
@@ -406,7 +406,7 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
         <div className="container flex h-16 items-center justify-between py-4">
           <div className="flex items-center gap-2">
             <Music className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">Harmonic</span>
+            <span className="text-xl font-bold">Muzer</span>
           </div>
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-sm font-medium hover:text-primary">
@@ -643,7 +643,7 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
       <footer className="border-t bg-background">
         <div className="container py-6 text-center">
           <p className="text-sm text-muted-foreground">
-            {new Date().getFullYear()} Harmonic. All rights reserved.
+            {new Date().getFullYear()} Muzer. All rights reserved.
           </p>
         </div>
       </footer>
