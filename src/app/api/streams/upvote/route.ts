@@ -49,20 +49,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const upVote = await prisma.$transaction([
-      prisma.upVote.create({
-        data: {
-          userId: session.user.id,
-          streamId: result.data.streamId,
-        },
-      }),
-      prisma.stream.update({
-        where: { id: result.data.streamId },
-        data: {
-          haveUpVoted: true,
-        },
-      }),
-    ]);
+    const upVote = await prisma.upVote.create({
+      data: {
+        userId: session.user.id,
+        streamId: result.data.streamId,
+      },
+    });
 
     return NextResponse.json(
       { message: "Upvote added successfully", upVote },

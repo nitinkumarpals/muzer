@@ -31,7 +31,6 @@ model Stream{
   bigThumbnail        String           @default("")
   active              Boolean          @default(true)
   upVotes             upVote[]
-  haveUpVoted         Boolean?
   userId              String
   user                User        @relation(fields: [userId],references: [id])
   

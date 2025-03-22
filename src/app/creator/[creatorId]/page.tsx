@@ -1,6 +1,10 @@
 import StreamView from "@/components/StreamView";
-const creatorId = "115594591100626333389";
-export default function Dashboard() {
+
+interface Params {
+  creatorId: string;
+}
+
+export default function Creator({ params: { creatorId } }: { params: Params }) {
   return (
     <>
       <StreamView creatorId={creatorId} />
