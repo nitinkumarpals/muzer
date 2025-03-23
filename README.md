@@ -15,7 +15,7 @@ Perfect for **streamers, parties, co-working spaces, and more!** 🎉💼
 ✅ **Streamer controls**: **Play ⏯️ | Pause ⏸️ | Skip ⏭️ | Stop ⏹️**  
 ✅ **Viewers can see the current song** 🎵👀  
 ✅ **Google login** for easy access 🔑✨  
-✅ **Share stream** with a simple **Share button** 🔗🎶  
+✅ **Share stream** with a simple **Share button** 🔗🎶
 
 ---
 
@@ -24,7 +24,7 @@ Perfect for **streamers, parties, co-working spaces, and more!** 🎉💼
 🚀 **Next.js** - Frontend & Backend ⚡  
 🛠️ **Full-Stack** implementation  
 🔗 **Google Authentication** for easy login  
-📡 **Real-time updates** for an interactive experience  
+📡 **Real-time updates** for an interactive experience
 
 ---
 
@@ -34,24 +34,27 @@ Perfect for **streamers, parties, co-working spaces, and more!** 🎉💼
 2️⃣ **Share the link** with viewers 📢🔗  
 3️⃣ **Viewers add songs** to the queue 🎶➕  
 4️⃣ **Upvote system** decides the next song 📈🎶  
-5️⃣ **Streamer controls playback** 🎧✨  
+5️⃣ **Streamer controls playback** 🎧✨
 
 ---
 
 ## 🚀 Getting Started
 
 1️⃣ Clone the repo:
+
 ```bash
 git clone https://github.com/nitinkumarpals/muzer.git
 ```
 
 2️⃣ Install dependencies:
+
 ```bash
 cd muzer
 npm install  # or yarn install
 ```
 
 3️⃣ Start the project:
+
 ```bash
 npm run dev  # or yarn dev
 ```
@@ -62,20 +65,21 @@ npm run dev  # or yarn dev
 
 🎤 **Perfect for Streamers** - Control your music while engaging with your audience!  
 🎉 **Great for Parties** - Let guests choose the music and vote on the vibe!  
-💼 **Awesome for Co-Working Spaces** - A democratic way to play music in shared spaces!  
+💼 **Awesome for Co-Working Spaces** - A democratic way to play music in shared spaces!
 
 ---
 
 ## 🚀 Live Demo
 
-🔗 [Muzer Live](https://your-live-demo-link.com) *(Coming soon!)*  
+🔗 [Muzer Live](https://your-live-demo-link.com) _(Coming soon!)_
 
 ---
 
 ## 📬 Contact & Support
 
 💬 Have any questions or feedback? Feel free to reach out!  
-📧 Email: [your-email@example.com](mailto:your-email@example.com)  
-🐦 Twitter: [@yourTwitter](https://twitter.com/yourTwitter)  
+📧 Email: [nitinpal900@gmail.com](mailto:nitinpal900@gmail.com)  
+🐦 Twitter: [@nitinkumarpals](https://x.com/nitinkumarpals)
+👨‍💻 LinkedIn: [linkedin.com/in/nitinkumarpals](https://www.linkedin.com/in/nitinkumarpals/)
 
 🚀 **Enjoy Muzer & Keep the Music Flowing!** 🎶🔥
