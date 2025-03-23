@@ -239,8 +239,33 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
         setQueueStreamIds([]);
       }
     } catch (err) {
-      console.error("Error fetching streams:", err);
-      setError("Failed to load streams. Please refresh the page.");
+      if (axios.isAxiosError(err)) {
+        const errorResponse = err.response;
+        console.error("Error fetching streams:", errorResponse?.data);
+        toast.warning(
+          "Authentication failed. Please check your login credentials and try again.",
+          {
+            description: "Error fetching streams due to unauthorized access.",
+            duration: 3000,
+            style: {
+              background: "red",
+              color: "white",
+              fontWeight: "bold",
+            },
+          }
+        );
+      } else {
+        console.error("Error fetching streams:", err);
+        toast.warning("An unexpected error occurred. Please try again later.", {
+          description: "Error fetching streams.",
+          duration: 3000,
+          style: {
+            background: "red",
+            color: "white",
+            fontWeight: "bold",
+          },
+        });
+      }
     } finally {
       setIsLoading(false);
     }
