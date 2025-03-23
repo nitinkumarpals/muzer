@@ -147,7 +147,7 @@ const QueueItem = ({
               src={stream.smallThumbnail || "/placeholder.svg"}
               alt={stream.title}
               fill
-              className="object-cover"
+              className="object-fill"
             />
           </div>
           <div className="flex flex-1 items-center justify-between p-3">
@@ -271,7 +271,6 @@ export default function StreamView({
         toast.warning(
           "Authentication failed. Please check your login credentials and try again.",
           {
-            description: "Error fetching streams due to unauthorized access.",
             duration: 3000,
             style: {
               background: "red",
