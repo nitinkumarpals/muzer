@@ -3,13 +3,15 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "./Providers";
 import { Toaster } from "@/components/ui/sonner";
-
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Muzer - Interactive Music Streaming",
   description:
     "Connect with your fans in real-time through interactive music streaming experiences.",
+  icons: {
+    icon: "/music.svg",
+  },
 };
 
 export default function RootLayout({
