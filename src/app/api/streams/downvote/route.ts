@@ -2,8 +2,8 @@ import { prisma } from "@/lib/db";
 import { upvoteSchema } from "@/schemas/upvoteSchema";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
-import { authOptions } from "../../auth/[...nextauth]/route";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);

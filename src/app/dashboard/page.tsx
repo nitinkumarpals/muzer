@@ -1,7 +1,7 @@
 import StreamView from "@/components/StreamView";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../api/auth/[...nextauth]/route";
 import { Redirect } from "@/components/Redirect";
+import { authOptions } from "@/lib/auth";
 
 export default async function Dashboard() {
   const session = await getServerSession(authOptions);

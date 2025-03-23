@@ -1,3 +1,4 @@
+import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { streamSchema } from "@/schemas/streamSchema";
 import { getServerSession } from "next-auth";
@@ -5,7 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 //@ts-expect-error Missing type definitions for youtube-search-api module
 import youtubesearchapi from "youtube-search-api";
-import { authOptions } from "../auth/[...nextauth]/route";
+
 
 const youtubeRegex =
   /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})(&.*)?$/;
