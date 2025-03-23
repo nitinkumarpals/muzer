@@ -81,21 +81,31 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const streams = await prisma.stream.findMany({
-    where: { userId: creatorId },
-    include: {
-      _count: {
-        select: {
-          upVotes: true,
+  const [streams, activeStream] = await Promise.all([
+    await prisma.stream.findMany({
+      where: { userId: creatorId },
+      include: {
+        _count: {
+          select: {
+            upVotes: true,
+          },
+        },
+        upVotes: {
+          where: {
+            userId: session.user.id,
+          },
         },
       },
-      upVotes: {
-        where: {
-          userId: session.user.id,
-        },
+    }),
+    prisma.currentStream.findFirst({
+      where: {
+        userId: creatorId,
       },
-    },
-  });
+      include: {
+        stream: true,
+      },
+    }),
+  ]);
   return NextResponse.json(
     {
       message: "Streams fetched",
@@ -104,6 +114,7 @@ export async function GET(req: NextRequest) {
         upVotes: _count.upVotes,
         haveUpVoted: rest.upVotes.length ? true : false,
       })),
+      activeStream,
     },
     { status: 200 }
   );
