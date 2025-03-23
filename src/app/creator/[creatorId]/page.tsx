@@ -1,4 +1,5 @@
-import { Redirect } from "@/components/Redirect";
+
+import { CreatorRedirect } from "@/components/CreatorRedirect";
 import StreamView from "@/components/StreamView";
 
 interface Props {
@@ -10,7 +11,7 @@ export default async function Creator({ params }: Props) {
 
   return (
     <>
-      <Redirect />
+      <CreatorRedirect/>
       <StreamView creatorId={resolvedParams.creatorId} playVideo={false} />
     </>
   );
