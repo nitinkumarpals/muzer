@@ -1,14 +1,14 @@
 "use client";
-
 import type React from "react";
 import { toast } from "sonner";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import YouTube from "react-youtube";
 import {
   Music,
   Play,
@@ -25,6 +25,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signOut, useSession } from "next-auth/react";
 import LiteYouTubeEmbed from "react-lite-youtube-embed";
@@ -55,38 +56,6 @@ const NowPlaying = ({
   onPlayNext: () => void;
   queueLength: number;
 }) => {
-  const playerRef = useRef<HTMLIFrameElement>(null);
-  const ytPlayerRef = useRef<any>(null);
-
-  useEffect(() => {
-    // Load YouTube IFrame API
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    const firstScriptTag = document.getElementsByTagName('script')[0];
-    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-
-    window.onYouTubeIframeAPIReady = () => {
-      if (playerRef.current) {
-        ytPlayerRef.current = new window.YT.Player(playerRef.current, {
-          events: {
-            onStateChange: (event: any) => {
-              // When video ends (state = 0), play next video
-              if (event.data === 0) {
-                onPlayNext();
-              }
-            },
-          },
-        });
-      }
-    };
-
-    return () => {
-      if (ytPlayerRef.current) {
-        ytPlayerRef.current.destroy();
-      }
-    };
-  }, [onPlayNext]);
-
   // Only re-render this component if the stream ID changes or streamer status changes
   return (
     <div className="rounded-lg border p-6">
@@ -96,17 +65,19 @@ const NowPlaying = ({
           {playVideo ? (
             <div className="space-y-4">
               <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
-                <iframe
-                  ref={playerRef}
-                  width="100%"
-                  height="100%"
-                  src={`https://www.youtube.com/embed/${stream.extractedId}?enablejsapi=1`}
-                  title="YouTube video player"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
+                <YouTube
+                  key={stream.extractedId}
+                  videoId={stream.extractedId}
+                  onEnd={onPlayNext}
+                  opts={{
+                    height: "100%",
+                    width: "100%",
+                    playerVars: {
+                      autoplay: 1,
+                    },
+                  }}
                   className="h-full w-full"
-                ></iframe>
+                />
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -229,13 +200,6 @@ const QueueItem = ({
   );
 };
 
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-  }
-}
-
 export default function StreamView({
   creatorId,
   playVideo = false,
@@ -278,7 +242,6 @@ export default function StreamView({
     try {
       const response = await axios.get(`/api/streams/?creatorId=${creatorId}`);
       const fetchedStreams = response.data.streams;
-      const activeStream = response.data.activeStream.id;
 
       // Create a map of streams by ID for efficient lookups
       const newStreamsMap: Record<string, Stream> = {};
@@ -375,7 +338,7 @@ export default function StreamView({
     }
 
     try {
-      await axios.post("api/streams", {
+      await axios.post("/api/streams", {
         creatorId: session.data?.user.id,
         url: videoUrl,
       });
@@ -453,7 +416,6 @@ export default function StreamView({
     if (!currentStreamId) return;
 
     try {
-
       const res = await axios.get("api/streams/next");
       if (queueStreams.length > 0) {
         // Get the stream with the highest votes
@@ -468,6 +430,7 @@ export default function StreamView({
       setError("Failed to play next video. Please try again.");
     }
   }, [currentStreamId, queueStreams]);
+
 
   // Function to share the page
   const handleShare = () => {
