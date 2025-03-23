@@ -1,5 +1,3 @@
-
-import { CreatorRedirect } from "@/components/CreatorRedirect";
 import StreamView from "@/components/StreamView";
 
 interface Props {
