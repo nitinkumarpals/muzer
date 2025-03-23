@@ -303,7 +303,7 @@ export default function StreamView({
     // Set up polling to refresh queue data without affecting the current stream
     const intervalId = setInterval(() => {
       fetchStreams();
-    }, 20000); // Poll every 20 seconds
+    }, 10000); // Poll every 10 seconds
 
     return () => clearInterval(intervalId);
   }, [fetchStreams]);
