@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
 
   const [streams, activeStream] = await Promise.all([
     await prisma.stream.findMany({
-      where: { userId: creatorId },
+      where: { userId: creatorId, played: false },
       include: {
         _count: {
           select: {

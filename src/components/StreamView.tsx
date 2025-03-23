@@ -25,7 +25,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signOut, useSession } from "next-auth/react";
 import LiteYouTubeEmbed from "react-lite-youtube-embed";
@@ -47,47 +46,104 @@ interface Stream {
 // Separate component for Now Playing to prevent re-renders
 const NowPlaying = ({
   stream,
-  isStreamer,
+  playVideo,
   onPlayNext,
   queueLength,
 }: {
   stream: Stream | null;
-  isStreamer: boolean;
+  playVideo: boolean;
   onPlayNext: () => void;
   queueLength: number;
 }) => {
   const playerRef = useRef<HTMLIFrameElement>(null);
+  const ytPlayerRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Load YouTube IFrame API
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    const firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+    window.onYouTubeIframeAPIReady = () => {
+      if (playerRef.current) {
+        ytPlayerRef.current = new window.YT.Player(playerRef.current, {
+          events: {
+            onStateChange: (event: any) => {
+              // When video ends (state = 0), play next video
+              if (event.data === 0) {
+                onPlayNext();
+              }
+            },
+          },
+        });
+      }
+    };
+
+    return () => {
+      if (ytPlayerRef.current) {
+        ytPlayerRef.current.destroy();
+      }
+    };
+  }, [onPlayNext]);
 
   // Only re-render this component if the stream ID changes or streamer status changes
   return (
     <div className="rounded-lg border p-6">
       <h2 className="text-xl font-bold mb-4">Now Playing</h2>
       {stream ? (
-        <div className="space-y-4">
-          <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
-            <iframe
-              ref={playerRef}
-              width="100%"
-              height="100%"
-              src={`https://www.youtube.com/embed/${stream.extractedId}?autoplay=1&enablejsapi=1`}
-              title="YouTube video player"
-              frameBorder="0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              className="h-full w-full"
-            ></iframe>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-medium">{stream.title}</h3>
+        <div>
+          {playVideo ? (
+            <div className="space-y-4">
+              <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                <iframe
+                  ref={playerRef}
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${stream.extractedId}?enablejsapi=1`}
+                  title="YouTube video player"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="h-full w-full"
+                ></iframe>
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">{stream.title}</h3>
+                </div>
+                {playVideo && (
+                  <Button onClick={onPlayNext} disabled={queueLength === 0}>
+                    <SkipForward className="mr-2 h-4 w-4" />
+                    Play Next
+                  </Button>
+                )}
+              </div>
             </div>
-            {isStreamer && (
-              <Button onClick={onPlayNext} disabled={queueLength === 0}>
-                <SkipForward className="mr-2 h-4 w-4" />
-                Play Next
-              </Button>
-            )}
-          </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="aspect-video w-full overflow-hidden rounded-lg bg-muted">
+                <Image
+                  src={stream.bigThumbnail || stream.smallThumbnail}
+                  alt={stream.title}
+                  className="h-full w-full object-cover"
+                  width={640}
+                  height={480}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium">{stream.title}</h3>
+                </div>
+                {playVideo && (
+                  <Button onClick={onPlayNext} disabled={queueLength === 0}>
+                    <SkipForward className="mr-2 h-4 w-4" />
+                    Play Next
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -173,14 +229,26 @@ const QueueItem = ({
   );
 };
 
-export default function StreamView({ creatorId }: { creatorId: string }) {
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
+export default function StreamView({
+  creatorId,
+  playVideo = false,
+}: {
+  creatorId: string;
+  playVideo: boolean;
+}) {
   const [videoUrl, setVideoUrl] = useState("");
   const [urlError, setUrlError] = useState<string | null>(null);
   const [currentStreamId, setCurrentStreamId] = useState<string | null>(null);
   const [queueStreamIds, setQueueStreamIds] = useState<string[]>([]);
   const [streamsMap, setStreamsMap] = useState<Record<string, Stream>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isStreamer, setIsStreamer] = useState(true);
   const [showShareAlert, setShowShareAlert] = useState(false);
   const [voteInProgress, setVoteInProgress] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -210,6 +278,7 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
     try {
       const response = await axios.get(`/api/streams/?creatorId=${creatorId}`);
       const fetchedStreams = response.data.streams;
+      const activeStream = response.data.activeStream.id;
 
       // Create a map of streams by ID for efficient lookups
       const newStreamsMap: Record<string, Stream> = {};
@@ -384,15 +453,12 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
     if (!currentStreamId) return;
 
     try {
-      // Remove current stream from backend
-      await axios.delete(
-        `/api/streams/deleteStream?streamId=${currentStreamId}`
-      );
 
+      const res = await axios.get("api/streams/next");
       if (queueStreams.length > 0) {
         // Get the stream with the highest votes
         const nextStream = queueStreams[0];
-        setCurrentStreamId(nextStream.id);
+        setCurrentStreamId(res.data.activeStream);
         setQueueStreamIds((prev) => prev.filter((id) => id !== nextStream.id));
       } else {
         setCurrentStreamId(null);
@@ -402,11 +468,6 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
       setError("Failed to play next video. Please try again.");
     }
   }, [currentStreamId, queueStreams]);
-
-  // Function to handle video end
-  const handleVideoEnd = useCallback(async () => {
-    await playNext();
-  }, [playNext]);
 
   // Function to share the page
   const handleShare = () => {
@@ -468,15 +529,6 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Viewer Mode</span>
-              <Switch
-                checked={isStreamer}
-                onCheckedChange={setIsStreamer}
-                aria-label="Toggle streamer mode"
-              />
-              <span className="text-sm font-medium">Streamer Mode</span>
-            </div>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -541,7 +593,7 @@ export default function StreamView({ creatorId }: { creatorId: string }) {
             ) : (
               <NowPlaying
                 stream={currentStream}
-                isStreamer={isStreamer}
+                playVideo={playVideo}
                 onPlayNext={playNext}
                 queueLength={queueStreams.length}
               />

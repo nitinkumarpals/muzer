@@ -7,7 +7,7 @@ interface Params {
 export default function Creator({ params: { creatorId } }: { params: Params }) {
   return (
     <>
-      <StreamView creatorId={creatorId} />
+      <StreamView creatorId={creatorId} playVideo={false} />
     </>
   );
 }

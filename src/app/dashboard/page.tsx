@@ -3,7 +3,7 @@ const creatorId = "115594591100626333389";
 export default function Dashboard() {
   return (
     <>
-      <StreamView creatorId={creatorId} />
+      <StreamView creatorId={creatorId} playVideo={true} />
     </>
   );
 }
