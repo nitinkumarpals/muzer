@@ -14,7 +14,6 @@ import {
   Play,
   SkipForward,
   Share2,
-  AlertCircle,
   ThumbsUp,
   ThumbsDown,
 } from "lucide-react";
@@ -25,8 +24,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signOut, useSession } from "next-auth/react";
 import LiteYouTubeEmbed from "react-lite-youtube-embed";
 import "react-lite-youtube-embed/dist/LiteYouTubeEmbed.css";
@@ -213,10 +210,8 @@ export default function StreamView({
   const [queueStreamIds, setQueueStreamIds] = useState<string[]>([]);
   const [streamsMap, setStreamsMap] = useState<Record<string, Stream>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showShareAlert, setShowShareAlert] = useState(false);
   const [voteInProgress, setVoteInProgress] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const session = useSession();
   // Memoized current stream to prevent re-renders
   const currentStream = useMemo(
@@ -237,7 +232,6 @@ export default function StreamView({
   // Function to fetch streams from API
   const fetchStreams = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
 
     try {
       const response = await axios.get(`/api/streams/?creatorId=${creatorId}`);
@@ -301,7 +295,7 @@ export default function StreamView({
     } finally {
       setIsLoading(false);
     }
-  }, [currentStreamId]);
+  }, [currentStreamId, creatorId]);
 
   // Fetch streams on component mount
   useEffect(() => {
@@ -403,7 +397,7 @@ export default function StreamView({
       setStreamsMap(newStreamsMap);
     } catch (error) {
       console.error("Error voting:", error);
-      setError("Failed to register vote. Please try again.");
+      toast.error("Failed to vote. Please try again.");
       // Refresh streams to get correct state
       await fetchStreams();
     } finally {
@@ -427,10 +421,9 @@ export default function StreamView({
       }
     } catch (error) {
       console.error("Error playing next stream:", error);
-      setError("Failed to play next video. Please try again.");
+      toast.error("Failed to play next video. Please try again.");
     }
   }, [currentStreamId, queueStreams]);
-
 
   // Function to share the page
   const handleShare = () => {
@@ -445,8 +438,6 @@ export default function StreamView({
         color: "#fff",
       },
     });
-    setShowShareAlert(true);
-    setTimeout(() => setShowShareAlert(false), 3000);
   };
 
   return (
@@ -512,14 +503,6 @@ export default function StreamView({
             </TooltipProvider>
           </div>
         </div>
-        {error && (
-          <Alert className="mb-4 bg-destructive/10 border-destructive">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-destructive" />
-              <AlertDescription>{error}</AlertDescription>
-            </div>
-          </Alert>
-        )}
 
         <div className="grid gap-8 lg:grid-cols-[1fr_400px]">
           {/* Now Playing Section */}
