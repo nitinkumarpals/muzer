@@ -9,7 +9,6 @@ export default async function Creator({ params }: Props) {
 
   return (
     <>
-      <CreatorRedirect/>
       <StreamView creatorId={resolvedParams.creatorId} playVideo={false} />
     </>
   );
