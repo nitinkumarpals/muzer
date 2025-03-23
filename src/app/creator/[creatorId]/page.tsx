@@ -1,15 +1,17 @@
 import { Redirect } from "@/components/Redirect";
 import StreamView from "@/components/StreamView";
 
-interface Params {
-  creatorId: string;
+interface Props {
+  params: Promise<{ creatorId: string }>;
 }
 
-export default function Creator({ params: { creatorId } }: { params: Params }) {
+export default async function Creator({ params }: Props) {
+  const resolvedParams = await params; // Await the params if it's a Promise
+
   return (
     <>
       <Redirect />
-      <StreamView creatorId={creatorId} playVideo={false} />
+      <StreamView creatorId={resolvedParams.creatorId} playVideo={false} />
     </>
   );
 }
