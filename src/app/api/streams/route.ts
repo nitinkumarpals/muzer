@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
   if (!creatorId) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
-
+  
   const [streams, activeStream] = await Promise.all([
     await prisma.stream.findMany({
       where: { userId: creatorId, played: false },
