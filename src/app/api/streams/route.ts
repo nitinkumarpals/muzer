@@ -36,10 +36,25 @@ export async function POST(req: NextRequest) {
 
     const youtubeResult = await youtubesearchapi.GetVideoDetails(extractedId);
 
+    if (!youtubeResult || !youtubeResult.thumbnail || !youtubeResult.thumbnail.thumbnails) {
+      return NextResponse.json(
+        { error: "Invalid request", message: "Unable to fetch video details" },
+        { status: 400 }
+      );
+    }
+
     const thumbnails = youtubeResult.thumbnail.thumbnails;
     thumbnails.sort((a: { width: number }, b: { width: number }) =>
       a.width < b.width ? -1 : 1
     );
+
+    const smallThumbnail = 
+      (thumbnails.length > 1 ? thumbnails[thumbnails.length - 2]?.url : thumbnails[thumbnails.length - 1]?.url) ??
+      "https://cdn.pixabay.com/photo/2024/02/28/07/42/european-shorthair-8601492_640.jpg";
+
+    const bigThumbnail = 
+      thumbnails[thumbnails.length - 1]?.url ??
+      "https://cdn.pixabay.com/photo/2024/02/28/07/42/european-shorthair-8601492_640.jpg";
 
     const stream = await prisma.stream.create({
       data: {
@@ -48,14 +63,8 @@ export async function POST(req: NextRequest) {
         extractedId,
         type: "Youtube",
         title: youtubeResult.title ?? "Can't find video",
-        smallThumbnail:
-          (thumbnails.length > 1
-            ? thumbnails[thumbnails.length - 2].url
-            : thumbnails[thumbnails.length - 1].url) ??
-          "https://cdn.pixabay.com/photo/2024/02/28/07/42/european-shorthair-8601492_640.jpg",
-        bigThumbnail:
-          thumbnails[thumbnails.length - 1].url ??
-          "https://cdn.pixabay.com/photo/2024/02/28/07/42/european-shorthair-8601492_640.jpg",
+        smallThumbnail,
+        bigThumbnail,
       },
     });
 
