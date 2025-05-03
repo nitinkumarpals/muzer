@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
     const extractedId = new URL(result.data.url).searchParams.get("v") ?? "";
 
     const youtubeResult = await youtubesearchapi.GetVideoDetails(extractedId);
-    console.log(youtubeResult);
     if (!youtubeResult || !youtubeResult.thumbnail || !youtubeResult.thumbnail.thumbnails) {
       return NextResponse.json(
         { error: "Invalid request", message: "Unable to fetch video details" },
